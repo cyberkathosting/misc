@@ -1,0 +1,311 @@
+# Install Sudo & Resolvconf (To bring inline with Ubuntu 12.x instructions)
+apt-get install sudo resolvconf
+
+# Install Vim
+apt-get install vim | vim-nox
+
+*Suggested packages:
+*  ctags vim-doc vim-scripts
+
+# Install OpenSSH
+apt-get install openssh-server openssh-client
+apt-get install openssh-blacklist openssh-blacklist-extra
+apt-get install openssl-blacklist openssl-blacklist-extra
+
+/etc/network/interfaces:
+
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+#allow-hotplug eth0
+#iface eth0 inet dhcp
+auto eth0
+iface eth0 inet static
+        address 192.168.0.100
+        netmask 255.255.255.0
+        network 192.168.0.0
+        broadcast 192.168.0.255
+        gateway 192.168.0.1
+        dns-nameservers 8.8.8.8 8.8.4.4
+
+/etc/init.d/networking restart
+
+/etc/hosts:
+
+127.0.0.1       localhost.localdomain   localhost
+192.168.0.100   server1.example.com     server1
+
+# The following lines are desirable for IPv6 capable hosts
+::1     localhost ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+
+echo server1.example.com > /etc/hostname
+/etc/init.d/hostname.sh start
+
+hostname
+hostname -f
+
+/etc/apt/sources.list.d/dotdeb.list:
+
+# Dotdeb repository
+deb http://packages.dotdeb.org squeeze all
+deb-src http://packages.dotdeb.org squeeze all
+
+wget http://www.dotdeb.org/dotdeb.gpg
+cat dotdeb.gpg | apt-key add -
+
+/etc/apt/sources.list: (ubuntu also enables multiverse and universe here)
+
+[...]
+deb http://ftp.de.debian.org/debian/ squeeze-updates main
+[...]
+
+apt-get update
+apt-get upgrade
+
+dpkg-reconfigure dash
+
+
+(Ubuntu has disable apparmor here)
+
+apt-get install ntp ntpdate
+
+*Suggested packages:
+*  ntp-doc
+
+# Postfix, Dovecot, mysql, phpmyadmin, rkhunter, binutils
+
+apt-get install postfix postfix-mysql postfix-doc mysql-client mysql-server openssl getmail4 rkhunter binutils dovecot-imapd dovecot-pop3d dovecot-mysql dovecot-sieve sudo
+
+/etc/postfix/master.cf:
+
+[...]
+submission inet n       -       -       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_client_restrictions=permit_sasl_authenticated,reject
+#  -o milter_macro_daemon_name=ORIGINATING
+smtps     inet  n       -       -       -       -       smtpd
+  -o syslog_name=postfix/smtps
+  -o smtpd_tls_wrappermode=yes
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_client_restrictions=permit_sasl_authenticated,reject
+#  -o milter_macro_daemon_name=ORIGINATING
+[...]
+
+/etc/init.d/postfix restart
+
+/etc/mysql/my.cnf:
+
+[...]
+# Instead of skip-networking the default is now to listen only on
+# localhost which is more compatible and is not less secure.
+#bind-address           = 127.0.0.1
+[...]
+
+/etc/init.d/mysql restart
+
+netstat -tap | grep mysql
+
+#amavis, spamassasin, clamav
+apt-get install amavisd-new spamassassin clamav clamav-daemon zoo unzip bzip2 arj nomarch lzop cabextract apt-listchanges libnet-ldap-perl libauthen-sasl-perl clamav-docs daemon libio-string-perl libio-socket-ssl-perl libnet-ident-perl zip libnet-dns-perl
+
+/etc/init.d/spamassassin stop
+update-rc.d -f spamassassin remove
+
+# Apache2 php5, phpmyadmin FCGI, suExec, pear, mcrypt
+apt-get install apache2 apache2.2-common apache2-doc apache2-mpm-prefork apache2-utils libexpat1 ssl-cert libapache2-mod-php5 php5 php5-common php5-gd php5-mysql php5-imap phpmyadmin php5-cli php5-cgi php5-curl libapache2-mod-fcgid apache2-suexec php-pear php-auth php5-mcrypt mcrypt php5-imagick imagemagick libapache2-mod-suphp libruby libapache2-mod-ruby libapache2-mod-python libapache2-mod-perl2
+
+a2enmod suexec rewrite ssl actions include
+
+a2enmod dav_fs dav auth_digest
+
+/etc/apache2/mods-available/suphp.conf:
+
+<IfModule mod_suphp.c>
+    #<FilesMatch "\.ph(p3?|tml)$">
+    #    SetHandler application/x-httpd-suphp
+    #</FilesMatch>
+        AddType application/x-httpd-suphp .php .php3 .php4 .php5 .phtml
+        suPHP_AddHandler application/x-httpd-suphp
+    <Directory />
+        suPHP_Engine on
+    </Directory>
+    # By default, disable suPHP for debian packaged web applications as files
+    # are owned by root and cannot be executed by suPHP because of min_uid.
+    <Directory /usr/share>
+        suPHP_Engine off
+    </Directory>
+# # Use a specific php config file (a dir which contains a php.ini file)
+#       suPHP_ConfigPath /etc/php5/cgi/suphp/
+# # Tells mod_suphp NOT to handle requests with the type <mime-type>.
+#       suPHP_RemoveHandler <mime-type>
+</IfModule>
+
+/etc/init.d/apache2 restart
+
+/etc/mime.types:
+
+[...]
+#application/x-ruby                             rb
+[...]
+
+/etc/init.d/apache2 restart
+
+#XCache (What about eAccelerator and APC?)
+
+apt-get install php5-xcache
+
+/etc/init.d/apache2 restart
+
+#PHP-FPM
+apt-get install libapache2-mod-fastcgi php5-fpm
+
+a2enmod actions fastcgi alias
+/etc/init.d/apache2 restart
+
+(Additional PHP Versions)
+
+# MailMan
+
+apt-get install mailman
+
+newlist mailman
+
+/etc/aliases:
+
+[...]
+## mailman mailing list
+mailman:              "|/var/lib/mailman/mail/mailman post mailman"
+mailman-admin:        "|/var/lib/mailman/mail/mailman admin mailman"
+mailman-bounces:      "|/var/lib/mailman/mail/mailman bounces mailman"
+mailman-confirm:      "|/var/lib/mailman/mail/mailman confirm mailman"
+mailman-join:         "|/var/lib/mailman/mail/mailman join mailman"
+mailman-leave:        "|/var/lib/mailman/mail/mailman leave mailman"
+mailman-owner:        "|/var/lib/mailman/mail/mailman owner mailman"
+mailman-request:      "|/var/lib/mailman/mail/mailman request mailman"
+mailman-subscribe:    "|/var/lib/mailman/mail/mailman subscribe mailman"
+mailman-unsubscribe:  "|/var/lib/mailman/mail/mailman unsubscribe mailman"
+
+newaliases
+
+/etc/init.d/postfix restart
+
+ln -s /etc/mailman/apache.conf /etc/apache2/conf.d/mailman.conf
+
+/etc/init.d/apache2 restart
+
+/etc/init.d/mailman start
+
+# pureftpd & Quota
+apt-get install pure-ftpd-common pure-ftpd-mysql quota quotatool
+
+/etc/default/pure-ftpd-common:
+
+
+[...]
+STANDALONE_OR_INETD=standalone
+[...]
+VIRTUALCHROOT=true
+[...]
+
+
+/etc/inetd.conf:
+
+[...]
+#:STANDARD: These are standard services.
+#ftp    stream  tcp     nowait  root    /usr/sbin/tcpd /usr/sbin/pure-ftpd-wrapper
+[...]
+
+/etc/init.d/openbsd-inetd restart
+
+echo 1 > /etc/pure-ftpd/conf/TLS
+
+mkdir -p /etc/ssl/private/
+
+openssl req -x509 -nodes -days 7300 -newkey rsa:2048 -keyout /etc/ssl/private/pure-ftpd.pem -out /etc/ssl/private/pure-ftpd.pem
+
+chmod 600 /etc/ssl/private/pure-ftpd.pem
+
+/etc/init.d/pure-ftpd-mysql restart
+
+/etc/fstab:
+
+# /etc/fstab: static file system information.
+#
+# Use 'blkid' to print the universally unique identifier for a
+# device; this may be used with UUID= as a more robust way to name devices
+# that works even if disks are added and removed. See fstab(5).
+#
+# <file system> <mount point>   <type>  <options>       <dump>  <pass>
+/dev/mapper/server1-root /               ext4    errors=remount-ro,usrjquota=quota.user,grpjquota=quota.group,jqfmt=vfsv0 0       1
+# /boot was on /dev/sda1 during installation
+UUID=07152d44-158e-4603-a14d-79f1838adebe /boot           ext2    defaults        0       2
+/dev/mapper/server1-swap_1 none            swap    sw              0       0
+
+mount -o remount /
+
+quotacheck -avugm
+quotaon -avug
+
+
+# Bind 9
+apt-get install bind9 dnsutils
+
+# vlogger, Webalizer & Awstats
+apt-get install vlogger webalizer awstats geoip-database libclass-dbi-mysql-perl
+
+/etc/cron.d/awstats:
+
+#MAILTO=root
+
+#*/10 * * * * www-data [ -x /usr/share/awstats/tools/update.sh ] && /usr/share/awstats/tools/update.sh
+
+# Generate static reports:
+#10 03 * * * www-data [ -x /usr/share/awstats/tools/buildstatic.sh ] && /usr/share/awstats/tools/buildstatic.sh
+
+(Jailkit)
+
+# Fail2ban
+apt-get install fail2ban
+
+/etc/fail2ban/jail.local:
+
+[pureftpd]
+enabled  = true
+port     = ftp
+filter   = pureftpd
+logpath  = /var/log/syslog
+maxretry = 3
+
+[dovecot-pop3imap]
+enabled = true
+filter = dovecot-pop3imap
+action = iptables-multiport[name=dovecot-pop3imap, port="pop3,pop3s,imap,imaps", protocol=tcp]
+logpath = /var/log/mail.log
+maxretry = 5
+
+/etc/fail2ban/filter.d/pureftpd.conf:
+
+[Definition]
+failregex = .*pure-ftpd: \(.*@<HOST>\) \[WARNING\] Authentication failed for user.*
+ignoreregex =
+
+/etc/fail2ban/filter.d/dovecot-pop3imap.conf:
+
+[Definition]
+failregex = (?: pop3-login|imap-login): .*(?:Authentication failure|Aborted login \(auth failed|Aborted login \(tried to use disabled|Disconnected \(auth failed|Aborted login \(\d+ authentication attempts).*rip=(?P<host>\S*),.*
+ignoreregex =
+
+/etc/init.d/fail2ban restart
+
+(squirrelmail)
